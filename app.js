@@ -6,18 +6,68 @@ const prevAndNextContainer = document.querySelector("#prev-and-next-container");
 const apiURL = "https://api.lyrics.ovh";
 const corsHeroku = "https://cors-anywhere.herokuapp.com";
 
+var lastRequestFatch = "";
+
+const fetchData = async (
+  url,
+  options = {
+    cache: true,
+  }
+) => {
+  const response = await fetch(url);
+
+  if (options.cache) {
+    lastRequestFatch = url;
+  }
+
+  return await response.json();
+};
+
 const getMoreSongs = async (url) => {
   try {
-    const response = await fetch(`${corsHeroku}/${url}`);
-    const responseJson = await response.json();
+    const data = await fetchData(`${corsHeroku}/${url}`);
 
-    insertSongsToPage(responseJson);
+    insertSongsToPage(data);
   } catch (error) {
     console.log(error);
-    return (songsContainer.innerHTML = `
+
+    prevAndNextContainer.innerHTML = "";
+
+    songsContainer.innerHTML = `
       <li class='warning-message'>Falha ao buscar os dados.</>
-    `);
+    `;
   }
+};
+
+const insertLyricsIntoPage = ({ songPreview, artist, songTitle, lyrics }) => {
+  songsContainer.innerHTML = `
+    <li class="lyrics-container song">
+      <audio src="${songPreview}" controls></audio>
+    </li>
+    <li class="lyrics-container">
+      <h2>${artist} - <strong>${songTitle}</strong></h2>
+
+      <p class="lyrics">${
+        lyrics || "Infelizmente não encontrei essa letra :C"
+      }</p>
+    </li>
+  `;
+
+  prevAndNextContainer.innerHTML = `
+  <button class="btn" onClick="getMoreSongs('${lastRequestFatch}')"> Voltar </button>
+`;
+};
+
+const fetchLyrics = async ({ artist, songTitle, songPreview }) => {
+  const data = await fetchData(`${apiURL}/v1/${artist}/${songTitle}`, {
+    cache: false,
+  });
+
+  const lyrics = data.lyrics
+    ? data.lyrics.replace(/(\r\n|\r|\n)/g, "<br/>")
+    : null;
+
+  insertLyricsIntoPage({ artist, songTitle, songPreview, lyrics });
 };
 
 const insertPrevAndNextButtonsToPage = ({ prev, next }) => {
@@ -32,31 +82,6 @@ const insertPrevAndNextButtonsToPage = ({ prev, next }) => {
         ? ` <button class="btn" onClick="getMoreSongs('${next}')" class="btn">Próximas</button> `
         : ""
     }`);
-};
-
-const fetchLyrics = async ({ artist, songTitle, songPreview }) => {
-  const response = await fetch(`${apiURL}/v1/${artist}/${songTitle}`);
-
-  const data = await response.json();
-
-  const lyrics = data.lyrics
-    ? data.lyrics.replace(/(\r\n|\r|\n)/g, "<br/>")
-    : null;
-
-  prevAndNextContainer.innerHTML = "";
-
-  songsContainer.innerHTML = `
-    <li class="lyrics-container song">
-      <audio src="${songPreview}" controls></audio>
-    </li>
-    <li class="lyrics-container">
-      <h2>${artist} - <strong>${songTitle}</strong></h2>
-
-      <p class="lyrics">${
-        lyrics || "Infelizmente não encontrei essa letra :C"
-      }</p>
-    </li>
-  `;
 };
 
 const insertSongsToPage = (songsInfo) => {
@@ -78,7 +103,9 @@ const insertSongsToPage = (songsInfo) => {
     .join("");
 
   if (songsInfo.prev || songsInfo.next) {
-    return insertPrevAndNextButtonsToPage(songsInfo);
+    insertPrevAndNextButtonsToPage(songsInfo);
+
+    return;
   }
 
   prevAndNextContainer.innerHTML = "";
@@ -89,10 +116,9 @@ const fetchSongs = async (term) => {
     <li class='warning-message'>Buscando os dados.</>`;
 
   try {
-    const response = await fetch(`${apiURL}/suggest/${term}`);
-    const responseJson = await response.json();
+    const data = await fetchData(`${apiURL}/suggest/${term}`);
 
-    insertSongsToPage(responseJson);
+    insertSongsToPage(data);
   } catch (error) {
     console.log(error);
     return (songsContainer.innerHTML = `
@@ -101,12 +127,14 @@ const fetchSongs = async (term) => {
   }
 };
 
-const onSubmit = (e) => {
+const handleFormSubmit = (e) => {
   e.preventDefault();
 
   prevAndNextContainer.innerHTML = "";
 
   const searchTerm = searchInput.value.trim();
+  searchInput.value = "";
+  searchInput.focus();
 
   if (!searchTerm) {
     return (songsContainer.innerHTML =
@@ -116,9 +144,9 @@ const onSubmit = (e) => {
   fetchSongs(searchTerm);
 };
 
-form.addEventListener("submit", onSubmit);
+form.addEventListener("submit", handleFormSubmit);
 
-songsContainer.addEventListener("click", (event) => {
+const handleSongsContainerClick = (event) => {
   const clickedElement = event.target;
 
   if (clickedElement.tagName === "BUTTON") {
@@ -130,4 +158,16 @@ songsContainer.addEventListener("click", (event) => {
 
     fetchLyrics({ artist, songTitle, songPreview }, clickedElement);
   }
-});
+};
+
+songsContainer.addEventListener("click", handleSongsContainerClick);
+
+const handlePrevAndNextContainerClicl = (event) => {
+  const clickedElement = event.target;
+
+  if (clickedElement.tagName === "BUTTON") {
+    clickedElement.style.cursor = "wait";
+  }
+};
+
+prevAndNextContainer.addEventListener("click", handlePrevAndNextContainerClicl);

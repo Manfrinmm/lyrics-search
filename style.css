@@ -25,6 +25,7 @@ button:active {
 }
 
 input:focus,
+audio:focus,
 button:focus {
   outline: none;
 }
