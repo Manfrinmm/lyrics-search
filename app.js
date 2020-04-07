@@ -37,9 +37,11 @@ const insertPrevAndNextButtonsToPage = ({ prev, next }) => {
 const fetchLyrics = async ({ artist, songTitle, songPreview }) => {
   const response = await fetch(`${apiURL}/v1/${artist}/${songTitle}`);
 
-  let { lyrics } = await response.json();
+  const data = await response.json();
 
-  lyrics = lyrics.replace(/(\r\n|\r|\n)/g, "<br/>");
+  const lyrics = data.lyrics
+    ? data.lyrics.replace(/(\r\n|\r|\n)/g, "<br/>")
+    : null;
 
   prevAndNextContainer.innerHTML = "";
 
